@@ -174,6 +174,12 @@ void *rotinaCliente(void *p_arg){
 		Portanto, ele aguarda que um dos barbeiros o chame.
 	*/
 	sem_post(&cliente);			// Há um cliente esperando atendimento
+	
+	/*
+		O cliente deve se sentar em uma das 3 cadeiras. Qual delas não importa.
+	*/
+	sem_wait(&cadeira);
+	
 	sem_wait(&barbeiro);		// Há um barbeiro para atendê-lo?
 	
 	/*
@@ -182,10 +188,6 @@ void *rotinaCliente(void *p_arg){
 	printf("O cliente %d esta sendo atendido agora\n", v_clienteAtual);
 	sleep(3);		// Simulação de que as ações levam algum tempo para serem feitas
 	
-	/*
-		O cliente deve se sentar em uma das 3 cadeiras. Qual delas não importa.
-	*/
-	sem_wait(&cadeira);
 	printf("O cliente %d esta sentado na cadeira do barbeiro", v_clienteAtual);
 	sleep(3);		// Simulação de que as ações levam algum tempo para serem feitas
 	
@@ -297,6 +299,8 @@ int main(int argc, char *argv[]){
 	for (barbeiroID = 0; barbeiroID < NRO_BARBEIROS; barbeiroID++) {
 		pthread_create(&vetorBarbeiros[barbeiroID], 0, (void *) rotinaBarbeiro, &barbeiroID);
 	}
+	
+	sleep(1);
 	
 	while(nroClientes != 0);
 	
