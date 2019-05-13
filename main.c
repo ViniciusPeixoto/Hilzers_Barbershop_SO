@@ -86,3 +86,11 @@ void avancaFila(fila* f){
     sem_post(&(f->cauda));										// Libera um espaço a mais no final da fila em questão
 }
 
+/*
+	Métodos principais do programa.
+	Aqui serão feitas as ações que darão andamento a todo o processo da barbearia.
+*/
+
+/*
+	Método para tratar como os clientes se portam dentro da  barbearia
+*/
