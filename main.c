@@ -20,6 +20,7 @@
 #DEFINE LUGARES_SOFA 4
 #DEFINE LUGARES_SALA 16
 #DEFINE NRO_CADEIRAS 3
+#DEFINE NRO_BARBEIROS 3
 #DEFINE NRO_CAIXA 1
 
 /*
@@ -57,7 +58,7 @@ fila *sofaEspera, *salaEspera;
 	somente para um único barbeiro/cliente.
 */
 
-sem_t barbeiro, cadeira, caixa;					// Ações da barbearia
+sem_t barbeiro, corte, cadeira, caixa;			// Ações da barbearia
 sem_t cliente, fazPagamento, recebeTroco;		// Ações dos clientes
 
 /*
@@ -114,7 +115,7 @@ void *rotinaCliente(void *p_arg){
 	
 	/*
 		O cliente atual será representado pelo valor numérico passado aqui.
-		O valor numérico vem da chamada de criação da thread
+		O valor numérico vem da chamada de criação da thread.
 	*/
 	int v_clienteAtual = *(int *) p_arg;
 	
@@ -198,6 +199,7 @@ void *rotinaCliente(void *p_arg){
 	/*
 		Com tudo definido, o serviço começa a ser feito.
 	*/
+	sem_post(&corte);
 	printf("O cliente %d esta tendo seu cabelo cortado", v_clienteAtual);
 	sleep(10);		// Simulação de que as ações levam algum tempo para serem feitas
 	
@@ -230,3 +232,84 @@ void *rotinaCliente(void *p_arg){
 /*
 	Método para tratar como os clientes se portam dentro da  barbearia
 */
+void *rotinaBarbeiro(void *p_arg){
+	
+	/*
+		O barbeiro atual será representado pelo valor numérico passado aqui.
+		O valor numérico vem da chamada de criação da thread.
+	*/
+	int v_barbeiroAtual = *(int *) p_arg;
+	
+	/*
+		Os barbeiros sempre estarão fazendo algo enquanto há clientes dentro da barbearia.
+		Por isso, suas funções estarão dentro de um condicional de loop infinito.
+	*/
+	while(1){
+		sem_post(&barbeiro);		// Há um barbeiro para atendimento
+		sem_wait(&cliente);			// Há um cliente para ser atendido?
+		
+		sem_wait(&corte);
+		printf("O barbeiro %d está cortando cabelo", v_barbeiroAtual);
+		sleep(10);
+		
+		sem_wait(&barbeiro);			// Há um barbeiro para receber o pagamento?
+		sem_wait(&fazPagamento);
+		sem_wait(&caixa);
+		printf("O barbeiro %d está usando a caixa registradora", v_barbeiroAtual);
+		sleep(5);
+		sem_post(&caixa);
+		
+		printf("O barbeiro %d está passando troco", v_barbeiroAtual);
+		sem_post(&recebeTroco);
+		
+		printf("O barbeiro %d esta livre", v_barbeiroAtual);
+	}
+}
+
+int main(int argc, char *argv[]){
+	
+	if (argc > 1) {
+		printf("Muitos argumentos passados. Erro!");
+		return -1;
+	}
+	int quantidadeClientes = atoi(argv[1]);
+	
+	sem_init(&cadeira,0,NRO_CADEIRAS);
+    sem_init(&barbeiro,0,0);
+    sem_init(&cliente,0,0);
+    sem_init(&faz_pagamento,0,0);
+    sem_init(&caixa,0,NRO_CAIXA);
+    sem_init(&recebe_troco,0,0);
+	
+	salaEspera = criaFila(LUGARES_SALA);
+	sofaEspera = criaFila(LUGARES_SOFA);
+	
+	pthread_t vetorClientes[quantidadeClientes];
+	pthread_t vetorBarbeiros[NRO_BARBEIROS];
+	
+	int clienteID;
+	int barbeiroID;
+	
+	for (clienteID = 0; clienteID < quantidadeClientes; clienteID++) {
+		pthread_create(&vetorClientes[clienteID], 0, (void *) rotinaCliente, &clienteID);
+	}
+	
+	for (barbeiroID = 0; barbeiroID < NRO_BARBEIROS; barbeiroID++) {
+		pthread_create(&vetorBarbeiros[barbeiroID], 0, (void *) rotinaBarbeiro, &barbeiroID
+	}
+	
+	while(nroClientes != 0);
+	
+	sem_destroy(&cadeira);
+    sem_destroy(&barbeiro);
+    sem_destroy(&cliente);
+    sem_destroy(&faz_pagamento);
+    sem_destroy(&caixa);
+    sem_destroy(&recebe_troco);
+	
+	free(salaEspera);
+	free(sofaEspera);
+	
+	return 0;
+	
+}
