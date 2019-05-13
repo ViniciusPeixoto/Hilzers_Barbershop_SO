@@ -16,12 +16,12 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#DEFINE LOTACAO_MAXIMA 20
-#DEFINE LUGARES_SOFA 4
-#DEFINE LUGARES_SALA 16
-#DEFINE NRO_CADEIRAS 3
-#DEFINE NRO_BARBEIROS 3
-#DEFINE NRO_CAIXA 1
+#define LOTACAO_MAXIMA 20
+#define LUGARES_SOFA 4
+#define LUGARES_SALA 16
+#define NRO_CADEIRAS 3
+#define NRO_BARBEIROS 3
+#define NRO_CAIXA 1
 
 /*
 	Com o objetivo de deixar a leitura do código mais clara, deste ponto em diante, variáveis usadas
@@ -86,13 +86,13 @@ fila *criaFila(int p_tamanhoFila){
 
 void esperaSala(fila *p_sala, int p_cliente){
     sem_wait(&(p_sala->cauda));										// Verifica se há espaço na sala de espera
-	printf("O cliente &d entrou na sala de espera", p_cliente);		// Se houver, o cliente entra na sala de espera
+	printf("O cliente %d entrou na sala de espera\n", p_cliente);		// Se houver, o cliente entra na sala de espera
     sem_post(&(p_sala->cabeca));									// Se há espaço na sala, há um cliente para sentar no sofá
 }
 
 void esperaSofa(fila *p_sofa, int p_cliente){
     sem_wait(&(p_sofa->cauda));										// Verifica se há espaço no sofá
-	printf("O cliente &d sentou no sofa", p_cliente);				// Se houver, o cliente senta no sofá
+	printf("O cliente %d sentou no sofa\n", p_cliente);				// Se houver, o cliente senta no sofá
     sem_post(&(p_sofa->cabeca));									// Se há espaço no sofá, há um cliente para ser o próximo a
 																	// ser atendido pelo barbeiro
 }
@@ -124,7 +124,7 @@ void *rotinaCliente(void *p_arg){
 		Caso contrário, ele vai embora.
 	*/
 	if (nroClientes >= 20){
-		printf("A barbearia esta cheia e nao cabe mais clientes. Vou embora.");
+		printf("A barbearia esta cheia e nao cabe mais clientes. Vou embora.\n");
 		return NULL;
 	}
 	
@@ -179,7 +179,7 @@ void *rotinaCliente(void *p_arg){
 	/*
 		Com o barbeiro disponível, temos então o serviço começando a ser feito.
 	*/
-	printf("O cliente %d esta sendo atendido agora", v_clienteAtual);
+	printf("O cliente %d esta sendo atendido agora\n", v_clienteAtual);
 	sleep(3);		// Simulação de que as ações levam algum tempo para serem feitas
 	
 	/*
@@ -200,7 +200,7 @@ void *rotinaCliente(void *p_arg){
 		Com tudo definido, o serviço começa a ser feito.
 	*/
 	sem_post(&corte);
-	printf("O cliente %d esta tendo seu cabelo cortado", v_clienteAtual);
+	printf("O cliente %d esta tendo seu cabelo cortado\n", v_clienteAtual);
 	sleep(10);		// Simulação de que as ações levam algum tempo para serem feitas
 	
 	/*
@@ -213,19 +213,19 @@ void *rotinaCliente(void *p_arg){
 		para o primeiro barbeiro que estiver disponível. Lembrando que qualquer barbeiro pode receber o pagamento.
 	*/
 	sem_post(&fazPagamento);
-	printf("O cliente %d quer pagar pelo servico", v_clienteAtual);
+	printf("O cliente %d quer pagar pelo servico\n", v_clienteAtual);
 	
 	/*
 		Depois de pagar, ele aguarda o barbeiro usar a caixa registradora para guardar o pagamento e pegar o troco.
 	*/
 	sem_wait(&recebeTroco);
-	printf("O cliente %d recebeu seu troco", v_clienteAtual);
+	printf("O cliente %d recebeu seu troco\n", v_clienteAtual);
 	
 	/*
 		Finalmente o cliente desocupa a cadeira e vai embora da barbearia.
 	*/
 	sem_post(&cadeira);
-	printf("O cliente %d esta indo embora", v_clienteAtual);
+	printf("O cliente %d esta indo embora\n", v_clienteAtual);
 	nroClientes--;
 }
 
@@ -249,27 +249,27 @@ void *rotinaBarbeiro(void *p_arg){
 		sem_wait(&cliente);			// Há um cliente para ser atendido?
 		
 		sem_wait(&corte);
-		printf("O barbeiro %d está cortando cabelo", v_barbeiroAtual);
+		printf("O barbeiro %d está cortando cabelo\n", v_barbeiroAtual);
 		sleep(10);
 		
 		sem_wait(&barbeiro);			// Há um barbeiro para receber o pagamento?
 		sem_wait(&fazPagamento);
 		sem_wait(&caixa);
-		printf("O barbeiro %d está usando a caixa registradora", v_barbeiroAtual);
+		printf("O barbeiro %d está usando a caixa registradora\n", v_barbeiroAtual);
 		sleep(5);
 		sem_post(&caixa);
 		
-		printf("O barbeiro %d está passando troco", v_barbeiroAtual);
+		printf("O barbeiro %d está passando troco\n", v_barbeiroAtual);
 		sem_post(&recebeTroco);
 		
-		printf("O barbeiro %d esta livre", v_barbeiroAtual);
+		printf("O barbeiro %d esta livre\n", v_barbeiroAtual);
 	}
 }
 
 int main(int argc, char *argv[]){
 	
-	if (argc > 1) {
-		printf("Muitos argumentos passados. Erro!");
+	if (argc > 2) {
+		printf("Muitos argumentos passados. Erro!\n");
 		return -1;
 	}
 	int quantidadeClientes = atoi(argv[1]);
@@ -277,9 +277,9 @@ int main(int argc, char *argv[]){
 	sem_init(&cadeira,0,NRO_CADEIRAS);
     sem_init(&barbeiro,0,0);
     sem_init(&cliente,0,0);
-    sem_init(&faz_pagamento,0,0);
+    sem_init(&fazPagamento,0,0);
     sem_init(&caixa,0,NRO_CAIXA);
-    sem_init(&recebe_troco,0,0);
+    sem_init(&recebeTroco,0,0);
 	
 	salaEspera = criaFila(LUGARES_SALA);
 	sofaEspera = criaFila(LUGARES_SOFA);
@@ -295,7 +295,7 @@ int main(int argc, char *argv[]){
 	}
 	
 	for (barbeiroID = 0; barbeiroID < NRO_BARBEIROS; barbeiroID++) {
-		pthread_create(&vetorBarbeiros[barbeiroID], 0, (void *) rotinaBarbeiro, &barbeiroID
+		pthread_create(&vetorBarbeiros[barbeiroID], 0, (void *) rotinaBarbeiro, &barbeiroID);
 	}
 	
 	while(nroClientes != 0);
@@ -303,9 +303,9 @@ int main(int argc, char *argv[]){
 	sem_destroy(&cadeira);
     sem_destroy(&barbeiro);
     sem_destroy(&cliente);
-    sem_destroy(&faz_pagamento);
+    sem_destroy(&fazPagamento);
     sem_destroy(&caixa);
-    sem_destroy(&recebe_troco);
+    sem_destroy(&recebeTroco);
 	
 	free(salaEspera);
 	free(sofaEspera);
