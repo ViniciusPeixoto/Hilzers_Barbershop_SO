@@ -57,8 +57,8 @@ fila *sofaEspera, *salaEspera;
 	somente para um único barbeiro/cliente.
 */
 
-sem_t barbeiro, cadeira, caixa;
-sem_t cliente, fazPagamento;
+sem_t barbeiro, cadeira, caixa;					// Ações da barbearia
+sem_t cliente, fazPagamento, recebeTroco;		// Ações dos clientes
 
 /*
 	Controle de clientes dentro da barbearia.
@@ -172,5 +172,61 @@ void *rotinaCliente(void *p_arg){
 		Após esperar no sofá, o cliente vai esperar que um barbeiro esteja disponívei para atendê-lo.
 		Portanto, ele aguarda que um dos barbeiros o chame.
 	*/
-	sem_wait(&barbeiro);
+	sem_post(&cliente);			// Há um cliente esperando atendimento
+	sem_wait(&barbeiro);		// Há um barbeiro para atendê-lo?
+	
+	/*
+		Com o barbeiro disponível, temos então o serviço começando a ser feito.
+	*/
+	printf("O cliente %d esta sendo atendido agora", v_clienteAtual);
+	sleep(3);		// Simulação de que as ações levam algum tempo para serem feitas
+	
+	/*
+		O cliente deve se sentar em uma das 3 cadeiras. Qual delas não importa.
+	*/
+	sem_wait(&cadeira);
+	printf("O cliente %d esta sentado na cadeira do barbeiro", v_clienteAtual);
+	sleep(3);		// Simulação de que as ações levam algum tempo para serem feitas
+	
+	/*
+		Como o cliente tomou seu lugar na cadeira do barbeiro agora, então o sofá tem um lugar vago. Então
+		os clientes movem a fila do sofá para frente. Isso define qual é o cliente que será o próximo a ser
+		atendido, bem como libera um espaço no sofá para alguém sentar.
+	*/
+	avancaFila(sofaEspera);
+	
+	/*
+		Com tudo definido, o serviço começa a ser feito.
+	*/
+	printf("O cliente %d esta tendo seu cabelo cortado", v_clienteAtual);
+	sleep(10);		// Simulação de que as ações levam algum tempo para serem feitas
+	
+	/*
+		Após o corte realizado, o barbeiro está livre para seus outros afazeres
+	*/
+	sem_post(&barbeiro);
+	
+	/*
+		Porém, o cliente ainda precisa realizar o pagamento pelo serviço. Portanto ele oferece o pagamento
+		para o primeiro barbeiro que estiver disponível. Lembrando que qualquer barbeiro pode receber o pagamento.
+	*/
+	sem_post(&fazPagamento);
+	printf("O cliente %d quer pagar pelo servico", v_clienteAtual);
+	
+	/*
+		Depois de pagar, ele aguarda o barbeiro usar a caixa registradora para guardar o pagamento e pegar o troco.
+	*/
+	sem_wait(&recebeTroco);
+	printf("O cliente %d recebeu seu troco", v_clienteAtual);
+	
+	/*
+		Finalmente o cliente desocupa a cadeira e vai embora da barbearia.
+	*/
+	sem_post(&cadeira);
+	printf("O cliente %d esta indo embora", v_clienteAtual);
+	nroClientes--;
 }
+
+/*
+	Método para tratar como os clientes se portam dentro da  barbearia
+*/
