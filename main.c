@@ -15,13 +15,14 @@
 #include <semaphore.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <string.h>
 
-#define LOTACAO_MAXIMA 20	// Quantidade máxima de clientes
-#define LUGARES_SOFA 4		// Quantidade de lugares no sofá
-#define LUGARES_SALA 16		// Quantidade de lugares na sala de espera
-#define NRO_CADEIRAS 3		// Quantidade de cadeiras de barbeiro
-#define NRO_BARBEIROS 3		// Quantidade de barbeiros
-#define NRO_CAIXA 1			// Quantidade de caixas registradoras
+#define LOTACAO_MAXIMA 20
+#define LUGARES_SOFA 4
+#define LUGARES_SALA 16
+#define NRO_CADEIRAS 3
+#define NRO_BARBEIROS 3
+#define NRO_CAIXA 1
 
 /*
 	Com o objetivo de deixar a leitura do código mais clara, deste ponto em diante, variáveis usadas
@@ -46,12 +47,26 @@ typedef struct{
 } fila;
 
 /*
+	Protótipos de funções e métodos usados nesse programa
+*/
+fila *criaFila(int p_tamanhoFila);
+void esperaSala(fila *p_sala, int p_cliente);
+void esperaSofa(fila *p_sofa, int p_cliente);
+void imprimeTexto(fila *p_acesso);
+void avancaFila(fila *p_fila);
+int maxInt(int p_valor1, int p_valor2);
+void imprimeFrase(char *p_frase, int p_valor);
+void *rotinaCliente(void *p_arg);
+void *rotinaBarbeiro(void *p_arg);
+
+
+/*
 	A barbearia possui duas condições de espera antes do cliente ser atendido:
 	Um sofá, para clientes que estão esperando e serão atendidos em breve, e
 	uma sala de espera, para clientes que esperarão mais tempo, em pé.
 */
 
-fila *sofaEspera, *salaEspera;
+fila *sofaEspera, *salaEspera, *acessoImprime;
 
 /*
 	Os recursos do sistema também são representados por semáforos, uma vez que eles estão disponíveis
@@ -60,12 +75,18 @@ fila *sofaEspera, *salaEspera;
 
 sem_t barbeiro, corte, cadeira, caixa;			// Ações da barbearia
 sem_t cliente, fazPagamento, recebeTroco;		// Ações dos clientes
+sem_t imprime;						// Ações do sistema
 
 /*
 	Controle de clientes dentro da barbearia.
 */
 
 int nroClientes = 0;
+
+/*
+	Frases que serão escritas
+*/
+char *frase;
 
 /*
 	Método para criação e inicialização das filas.
@@ -86,15 +107,30 @@ fila *criaFila(int p_tamanhoFila){
 
 void esperaSala(fila *p_sala, int p_cliente){
     sem_wait(&(p_sala->cauda));										// Verifica se há espaço na sala de espera
-	printf("O cliente %d entrou na sala de espera\n", p_cliente);		// Se houver, o cliente entra na sala de espera
+	imprimeTexto(acessoImprime);
+	sem_wait(&imprime);
+	frase = "O cliente %d entrou na sala de espera.\n";
+	imprimeFrase(frase, p_cliente);
+	avancaFila(acessoImprime);
+	sem_post(&imprime);
     sem_post(&(p_sala->cabeca));									// Se há espaço na sala, há um cliente para sentar no sofá
 }
 
 void esperaSofa(fila *p_sofa, int p_cliente){
     sem_wait(&(p_sofa->cauda));										// Verifica se há espaço no sofá
-	printf("O cliente %d sentou no sofa\n", p_cliente);				// Se houver, o cliente senta no sofá
+	imprimeTexto(acessoImprime);
+	sem_wait(&imprime);
+	frase = "\tO cliente %d sentou no sofa.\n";
+	imprimeFrase(frase, p_cliente);
+	avancaFila(acessoImprime);
+	sem_post(&imprime);
     sem_post(&(p_sofa->cabeca));									// Se há espaço no sofá, há um cliente para ser o próximo a
 																	// ser atendido pelo barbeiro
+}
+
+void imprimeTexto(fila *p_acesso){
+	sem_wait(&(p_acesso->cauda));
+	sem_post(&(p_acesso->cabeca));
 }
 
 void avancaFila(fila *p_fila){
@@ -124,7 +160,12 @@ void *rotinaCliente(void *p_arg){
 		Caso contrário, ele vai embora.
 	*/
 	if (nroClientes >= 20){
-		printf("A barbearia esta cheia e nao cabe mais clientes. Vou embora.\n");
+		imprimeTexto(acessoImprime);
+		sem_wait(&imprime);
+		frase = "A barbearia esta cheia. O cliente %d vai embora.\n";
+		imprimeFrase(frase, v_clienteAtual);
+		avancaFila(acessoImprime);
+		sem_post(&imprime);
 		return NULL;
 	}
 	
@@ -174,21 +215,31 @@ void *rotinaCliente(void *p_arg){
 		Portanto, ele aguarda que um dos barbeiros o chame.
 	*/
 	sem_post(&cliente);			// Há um cliente esperando atendimento
-	
+
 	/*
 		O cliente deve se sentar em uma das 3 cadeiras. Qual delas não importa.
 	*/
 	sem_wait(&cadeira);
-	
+
 	sem_wait(&barbeiro);		// Há um barbeiro para atendê-lo?
 	
 	/*
 		Com o barbeiro disponível, temos então o serviço começando a ser feito.
 	*/
-	printf("O cliente %d esta sendo atendido agora\n", v_clienteAtual);
+	imprimeTexto(acessoImprime);
+	sem_wait(&imprime);
+	frase = "\t\tO cliente %d esta sendo atendido agora.\n";
+	imprimeFrase(frase, v_clienteAtual);
+	avancaFila(acessoImprime);
+	sem_post(&imprime);
 	sleep(3);		// Simulação de que as ações levam algum tempo para serem feitas
 	
-	printf("O cliente %d esta sentado na cadeira do barbeiro", v_clienteAtual);
+	imprimeTexto(acessoImprime);
+	sem_wait(&imprime);
+	frase = "\t\tO cliente %d esta sentado na cadeira do barbeiro.\n";
+	imprimeFrase(frase, v_clienteAtual);
+	avancaFila(acessoImprime);
+	sem_post(&imprime);
 	sleep(3);		// Simulação de que as ações levam algum tempo para serem feitas
 	
 	/*
@@ -202,7 +253,12 @@ void *rotinaCliente(void *p_arg){
 		Com tudo definido, o serviço começa a ser feito.
 	*/
 	sem_post(&corte);
-	printf("O cliente %d esta tendo seu cabelo cortado\n", v_clienteAtual);
+	imprimeTexto(acessoImprime);
+	sem_wait(&imprime);
+	frase = "\t\tO cliente %d esta tendo seu cabelo cortado.\n";
+	imprimeFrase(frase, v_clienteAtual);
+	avancaFila(acessoImprime);
+	sem_post(&imprime);
 	sleep(10);		// Simulação de que as ações levam algum tempo para serem feitas
 	
 	/*
@@ -215,19 +271,34 @@ void *rotinaCliente(void *p_arg){
 		para o primeiro barbeiro que estiver disponível. Lembrando que qualquer barbeiro pode receber o pagamento.
 	*/
 	sem_post(&fazPagamento);
-	printf("O cliente %d quer pagar pelo servico\n", v_clienteAtual);
+	imprimeTexto(acessoImprime);
+	sem_wait(&imprime);
+	frase = "\t\tO cliente %d quer pagar pelo servico.\n";
+	imprimeFrase(frase, v_clienteAtual);
+	avancaFila(acessoImprime);
+	sem_post(&imprime);
 	
 	/*
 		Depois de pagar, ele aguarda o barbeiro usar a caixa registradora para guardar o pagamento e pegar o troco.
 	*/
 	sem_wait(&recebeTroco);
-	printf("O cliente %d recebeu seu troco\n", v_clienteAtual);
+	imprimeTexto(acessoImprime);
+	sem_wait(&imprime);
+	frase = "\t\tO cliente %d recebeu seu troco.\n";
+	imprimeFrase(frase, v_clienteAtual);
+	avancaFila(acessoImprime);
+	sem_post(&imprime);
 	
 	/*
 		Finalmente o cliente desocupa a cadeira e vai embora da barbearia.
 	*/
 	sem_post(&cadeira);
-	printf("O cliente %d esta indo embora\n", v_clienteAtual);
+	imprimeTexto(acessoImprime);
+	sem_wait(&imprime);
+	frase = "\t\tO cliente %d esta indo embora.\n";
+	imprimeFrase(frase, v_clienteAtual);
+	avancaFila(acessoImprime);
+	sem_post(&imprime);
 	nroClientes--;
 }
 
@@ -250,115 +321,101 @@ void *rotinaBarbeiro(void *p_arg){
 		sem_post(&barbeiro);		// Há um barbeiro para atendimento
 		sem_wait(&cliente);			// Há um cliente para ser atendido?
 		
-		/*
-			O corte de cabelo começa a ser feito pelo barbeiro
-		*/
 		sem_wait(&corte);
-		printf("O barbeiro %d está cortando cabelo\n", v_barbeiroAtual);
+		imprimeTexto(acessoImprime);
+		sem_wait(&imprime);
+		frase = "\t\tO barbeiro %d está cortando cabelo.\n";
+		imprimeFrase(frase, v_barbeiroAtual);
+		avancaFila(acessoImprime);
+		sem_post(&imprime);
 		sleep(10);
 		
 		sem_wait(&barbeiro);			// Há um barbeiro para receber o pagamento?
-		
-		/*
-			O barbeiro que estiver disponível irá receber pelo corte realizado por um cliente.
-			Como um barbeiro acabou de ficar disponível após o serviço prestado, é provável que
-			ele atenda o pagamento, mas não é necessáriamente sempre ele.
-		*/
 		sem_wait(&fazPagamento);
-		sem_wait(&caixa);				// Acesso à caixa registradora
-		printf("O barbeiro %d está usando a caixa registradora\n", v_barbeiroAtual);
-		sleep(5);			// Simulação de que as ações levam algum tempo para serem feitas
-		sem_post(&caixa);				// Libera o uso da caixa registradora
+		imprimeTexto(acessoImprime);
+		sem_wait(&imprime);
+		frase = "\t\t\tO barbeiro %d está recebendo pagamento.\n";
+		imprimeFrase(frase, v_barbeiroAtual);
+		avancaFila(acessoImprime);
+		sem_post(&imprime);
+
+		sem_wait(&caixa);
+		imprimeTexto(acessoImprime);
+		sem_wait(&imprime);
+		frase = "\t\t\tO barbeiro %d está usando a caixa registradora.\n";
+		imprimeFrase(frase, v_barbeiroAtual);
+		avancaFila(acessoImprime);
+		sem_post(&imprime);
+		sleep(5);
+		sem_post(&caixa);
 		
-		/*
-			Após usar a caixa registradora, o barbeiro dá o troco para o cliente
-		*/
-		printf("O barbeiro %d está passando troco\n", v_barbeiroAtual);
+		imprimeTexto(acessoImprime);
+		sem_wait(&imprime);
+		frase = "\t\tO barbeiro %d está passando troco.\n";
+		imprimeFrase(frase, v_barbeiroAtual);
+		avancaFila(acessoImprime);
+		sem_post(&imprime);
 		sem_post(&recebeTroco);
 		
-		/*
-			O barbeiro estará livre para atender o próximo cliente
-		*/
-		printf("O barbeiro %d esta livre\n", v_barbeiroAtual);
+		imprimeTexto(acessoImprime);
+		sem_wait(&imprime);
+		frase = "\t\t\tO barbeiro %d esta livre.\n";
+		imprimeFrase(frase, v_barbeiroAtual);
+		avancaFila(acessoImprime);
+		sem_post(&imprime);
 	}
 }
 
-/*
-	Função que avalia dois inteiros e retorna o maior deles
-*/
 int maxInt(int p_valor1, int p_valor2){
-	
 	if (p_valor1 > p_valor2) {
 		return p_valor1;
 	}
-	
+
 	return p_valor2;
 }
 
-/*
-	Programa principal
-*/
+void imprimeFrase(char *p_frase, int p_valor){
+	printf(p_frase, p_valor);
+}
+
 int main(int argc, char *argv[]){
 	
-	/*
-		Como argumento deve ser passado quantos clientes querem usar a barbearia
-	*/
 	if (argc > 2) {
 		printf("Muitos argumentos passados. Erro!\n");
 		return -1;
 	}
 	int quantidadeClientes = atoi(argv[1]);
 	
+	sem_init(&cadeira,0,NRO_CADEIRAS);
+    sem_init(&barbeiro,0,0);
+    sem_init(&cliente,0,0);
+    sem_init(&fazPagamento,0,0);
+    sem_init(&caixa,0,NRO_CAIXA);
+    sem_init(&recebeTroco,0,0);
+	sem_init(&imprime,0,1);
 	
-	/*
-		Realiza-se a inicialização dos semáforos que controlarão o fluxo de tarefas
-	*/
-	sem_init(&cadeira,0,NRO_CADEIRAS);		// Só é possível usar NRO_CADEIRAS de cadeiras de barbeiro
-    sem_init(&barbeiro,0,0);				// Os barbeiros são controlados por threads de barbeiro
-    sem_init(&cliente,0,0);					// Os clientes são controlados por threads de clientes
-    sem_init(&fazPagamento,0,0);			// Um pagamento só pode ser feito quando um cliente quiser pagar
-    sem_init(&caixa,0,NRO_CAIXA);			// Só é possível usar NRO_CAIXA de caixas registradoras
-    sem_init(&recebeTroco,0,0);				// O troco só pode ser passado quando um barbeiro quiser passar
-	
-	/*
-		As filas de semáforos para a sala e o sofá são criadas
-		Seus tamanhos dependem do número de LUGARES_SALA e LUGARES_SOFA
-		Os clientes só avançam nessa fila quando o primeiro da fila sair, liberando um novo espaço no final da fila.
-	*/
 	salaEspera = criaFila(LUGARES_SALA);
 	sofaEspera = criaFila(LUGARES_SOFA);
+	acessoImprime = criaFila(quantidadeClientes+NRO_BARBEIROS);
 	
-	/*
-		Os clientes e barbeiros serão tratados como threads, aqui organizados em vetores
-		Isso se faz porque as ações dos clientes e dos barbeiros ocorrem em paralelo
-		Por exemplo, um barbeiro pode estar cortando o cabelo enquanto outro está passando troco, bem como um cliente
-		pode estar em pé na sala de espera enquanto outro está tendo seu cabelo cortado.
-	*/
 	pthread_t vetorClientes[quantidadeClientes];
 	pthread_t vetorBarbeiros[NRO_BARBEIROS];
 	
-	/*
-		Cria os valores dos identificadores dos clientes e dos barbeiros
-	*/
 	int identificadores[maxInt(quantidadeClientes, NRO_BARBEIROS)];
 	
 	for (int i = 0; i < quantidadeClientes; i++) {
-		identificadores[i] = i+1;					// Os valores de identificadores vão de 1 até quantidadeClientes
+		identificadores[i] = i;
 		pthread_create(&vetorClientes[i], 0, (void *) rotinaCliente, &identificadores[i]);
 	}
 	
-	for (int i = 0; i < NRO_BARBEIROS; i++) {
-		identificadores[i] = i+1;					// Os valores de identificadores vão de 1 até NRO_BARBEIROS
+	for (int i = 0; i < NRO_BARBEIROS; i++) {	
 		pthread_create(&vetorBarbeiros[i], 0, (void *) rotinaBarbeiro, &identificadores[i]);
 	}
 	
-	sleep(1);	// Fornece um tempo para que o primeiro cliente entre na loja e quebre a condição de saída abaixo
+	sleep(1);
+
+	while(nroClientes != 0);
 	
-	while(nroClientes != 0);	// Aguarda todos os clientes serem atendidos
-	
-	/*
-		Destrutores de semáforos, desalocando as memórias que eles ocupam
-	*/
 	sem_destroy(&cadeira);
     sem_destroy(&barbeiro);
     sem_destroy(&cliente);
@@ -366,9 +423,6 @@ int main(int argc, char *argv[]){
     sem_destroy(&caixa);
     sem_destroy(&recebeTroco);
 	
-	/*
-		Destrutores de filas, desalocando as memórias que elas ocupam
-	*/
 	free(salaEspera);
 	free(sofaEspera);
 	
