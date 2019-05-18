@@ -16,12 +16,12 @@
 #include <pthread.h>
 #include <unistd.h>
 
-#define LOTACAO_MAXIMA 20
-#define LUGARES_SOFA 4
-#define LUGARES_SALA 16
-#define NRO_CADEIRAS 3
-#define NRO_BARBEIROS 3
-#define NRO_CAIXA 1
+#define LOTACAO_MAXIMA 20	// Quantidade máxima de clientes
+#define LUGARES_SOFA 4		// Quantidade de lugares no sofá
+#define LUGARES_SALA 16		// Quantidade de lugares na sala de espera
+#define NRO_CADEIRAS 3		// Quantidade de cadeiras de barbeiro
+#define NRO_BARBEIROS 3		// Quantidade de barbeiros
+#define NRO_CAIXA 1			// Quantidade de caixas registradoras
 
 /*
 	Com o objetivo de deixar a leitura do código mais clara, deste ponto em diante, variáveis usadas
