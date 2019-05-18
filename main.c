@@ -81,6 +81,7 @@ sem_t imprime, vazio;									// Ações do sistema
 	Controle de clientes dentro da barbearia.
 */
 int nroClientes = 0;
+int espera = 0;
 
 /*
 	Frases que serão escritas
@@ -172,7 +173,6 @@ void *rotinaCliente(void *p_arg){
 		Caso haja espaço, o numero de clientes ativamente na barbearia aumenta.
 	*/
 	nroClientes++;
-	sem_post(&vazio);
 	
 	/*
 		Uma vez que o cliente conseguiu entrar na barbearia, a primeira coisa que ele vai fazer é
@@ -195,6 +195,9 @@ void *rotinaCliente(void *p_arg){
 		lugar no sofá.
 	*/
 	esperaSofa(sofaEspera, v_clienteAtual);
+	sem_wait(&vazio);
+	espera++;
+	sem_post(&vazio);
 	
 	/*
 		Com a mesma ideia da sala de espera, somente a pessoa que está sentada a mais tempo, ou seja,
@@ -299,7 +302,6 @@ void *rotinaCliente(void *p_arg){
 	imprimeFrase(frase, v_clienteAtual);
 	avancaFila(acessoImprime);
 	sem_post(&imprime);
-	sem_wait(&vazio);	
 	nroClientes--;
 
 	
@@ -385,15 +387,13 @@ void *rotinaBarbeiro(void *p_arg){
 		avancaFila(acessoImprime);
 		sem_post(&imprime);
 		
-		if(nroClientes == 0){
+		if(espera == 0){
 			imprimeTexto(acessoImprime);
 			sem_wait(&imprime);
 			frase = "\t\t\tNao ha clientes. O barbeiro %d vai dormir.\n";
 			imprimeFrase(frase, v_barbeiroAtual);
 			avancaFila(acessoImprime);
 			sem_post(&imprime);
-			sem_wait(&vazio);
-			
 		}
 	}
 }
@@ -440,7 +440,7 @@ int main(int argc, char *argv[]){
     sem_init(&caixa,0,NRO_CAIXA);
     sem_init(&recebeTroco,0,0);
 	sem_init(&imprime,0,1);
-	sem_init(&vazio, 0, 0);
+	sem_init(&vazio, 0,1);
 	
 	/*
 		As filas de semáforos para a sala e o sofá são criadas
