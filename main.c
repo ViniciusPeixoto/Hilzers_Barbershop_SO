@@ -250,60 +250,115 @@ void *rotinaBarbeiro(void *p_arg){
 		sem_post(&barbeiro);		// Há um barbeiro para atendimento
 		sem_wait(&cliente);			// Há um cliente para ser atendido?
 		
+		/*
+			O corte de cabelo começa a ser feito pelo barbeiro
+		*/
 		sem_wait(&corte);
 		printf("O barbeiro %d está cortando cabelo\n", v_barbeiroAtual);
 		sleep(10);
 		
 		sem_wait(&barbeiro);			// Há um barbeiro para receber o pagamento?
-		sem_wait(&fazPagamento);
-		sem_wait(&caixa);
-		printf("O barbeiro %d está usando a caixa registradora\n", v_barbeiroAtual);
-		sleep(5);
-		sem_post(&caixa);
 		
+		/*
+			O barbeiro que estiver disponível irá receber pelo corte realizado por um cliente.
+			Como um barbeiro acabou de ficar disponível após o serviço prestado, é provável que
+			ele atenda o pagamento, mas não é necessáriamente sempre ele.
+		*/
+		sem_wait(&fazPagamento);
+		sem_wait(&caixa);				// Acesso à caixa registradora
+		printf("O barbeiro %d está usando a caixa registradora\n", v_barbeiroAtual);
+		sleep(5);			// Simulação de que as ações levam algum tempo para serem feitas
+		sem_post(&caixa);				// Libera o uso da caixa registradora
+		
+		/*
+			Após usar a caixa registradora, o barbeiro dá o troco para o cliente
+		*/
 		printf("O barbeiro %d está passando troco\n", v_barbeiroAtual);
 		sem_post(&recebeTroco);
 		
+		/*
+			O barbeiro estará livre para atender o próximo cliente
+		*/
 		printf("O barbeiro %d esta livre\n", v_barbeiroAtual);
 	}
 }
 
+/*
+	Função que avalia dois inteiros e retorna o maior deles
+*/
+int maxInt(int p_valor1, int p_valor2){
+	
+	if (p_valor1 > p_valor2) {
+		return p_valor1;
+	}
+	
+	return p_valor2;
+}
+
+/*
+	Programa principal
+*/
 int main(int argc, char *argv[]){
 	
+	/*
+		Como argumento deve ser passado quantos clientes querem usar a barbearia
+	*/
 	if (argc > 2) {
 		printf("Muitos argumentos passados. Erro!\n");
 		return -1;
 	}
 	int quantidadeClientes = atoi(argv[1]);
 	
-	sem_init(&cadeira,0,NRO_CADEIRAS);
-    sem_init(&barbeiro,0,0);
-    sem_init(&cliente,0,0);
-    sem_init(&fazPagamento,0,0);
-    sem_init(&caixa,0,NRO_CAIXA);
-    sem_init(&recebeTroco,0,0);
 	
+	/*
+		Realiza-se a inicialização dos semáforos que controlarão o fluxo de tarefas
+	*/
+	sem_init(&cadeira,0,NRO_CADEIRAS);		// Só é possível usar NRO_CADEIRAS de cadeiras de barbeiro
+    sem_init(&barbeiro,0,0);				// Os barbeiros são controlados por threads de barbeiro
+    sem_init(&cliente,0,0);					// Os clientes são controlados por threads de clientes
+    sem_init(&fazPagamento,0,0);			// Um pagamento só pode ser feito quando um cliente quiser pagar
+    sem_init(&caixa,0,NRO_CAIXA);			// Só é possível usar NRO_CAIXA de caixas registradoras
+    sem_init(&recebeTroco,0,0);				// O troco só pode ser passado quando um barbeiro quiser passar
+	
+	/*
+		As filas de semáforos para a sala e o sofá são criadas
+		Seus tamanhos dependem do número de LUGARES_SALA e LUGARES_SOFA
+		Os clientes só avançam nessa fila quando o primeiro da fila sair, liberando um novo espaço no final da fila.
+	*/
 	salaEspera = criaFila(LUGARES_SALA);
 	sofaEspera = criaFila(LUGARES_SOFA);
 	
+	/*
+		Os clientes e barbeiros serão tratados como threads, aqui organizados em vetores
+		Isso se faz porque as ações dos clientes e dos barbeiros ocorrem em paralelo
+		Por exemplo, um barbeiro pode estar cortando o cabelo enquanto outro está passando troco, bem como um cliente
+		pode estar em pé na sala de espera enquanto outro está tendo seu cabelo cortado.
+	*/
 	pthread_t vetorClientes[quantidadeClientes];
 	pthread_t vetorBarbeiros[NRO_BARBEIROS];
 	
-	int clienteID;
-	int barbeiroID;
+	/*
+		Cria os valores dos identificadores dos clientes e dos barbeiros
+	*/
+	int identificadores[maxInt(quantidadeClientes, NRO_BARBEIROS)];
 	
-	for (clienteID = 0; clienteID < quantidadeClientes; clienteID++) {
-		pthread_create(&vetorClientes[clienteID], 0, (void *) rotinaCliente, &clienteID);
+	for (int i = 0; i < quantidadeClientes; i++) {
+		identificadores[i] = i+1;					// Os valores de identificadores vão de 1 até quantidadeClientes
+		pthread_create(&vetorClientes[i], 0, (void *) rotinaCliente, &identificadores[i]);
 	}
 	
-	for (barbeiroID = 0; barbeiroID < NRO_BARBEIROS; barbeiroID++) {
-		pthread_create(&vetorBarbeiros[barbeiroID], 0, (void *) rotinaBarbeiro, &barbeiroID);
+	for (int i = 0; i < NRO_BARBEIROS; i++) {
+		identificadores[i] = i+1;					// Os valores de identificadores vão de 1 até NRO_BARBEIROS
+		pthread_create(&vetorBarbeiros[i], 0, (void *) rotinaBarbeiro, &identificadores[i]);
 	}
 	
-	sleep(1);
+	sleep(1);	// Fornece um tempo para que o primeiro cliente entre na loja e quebre a condição de saída abaixo
 	
-	while(nroClientes != 0);
+	while(nroClientes != 0);	// Aguarda todos os clientes serem atendidos
 	
+	/*
+		Destrutores de semáforos, desalocando as memórias que eles ocupam
+	*/
 	sem_destroy(&cadeira);
     sem_destroy(&barbeiro);
     sem_destroy(&cliente);
@@ -311,6 +366,9 @@ int main(int argc, char *argv[]){
     sem_destroy(&caixa);
     sem_destroy(&recebeTroco);
 	
+	/*
+		Destrutores de filas, desalocando as memórias que elas ocupam
+	*/
 	free(salaEspera);
 	free(sofaEspera);
 	
