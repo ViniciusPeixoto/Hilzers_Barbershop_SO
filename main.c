@@ -17,12 +17,12 @@
 #include <unistd.h>
 #include <string.h>
 
-#define LOTACAO_MAXIMA 20
-#define LUGARES_SOFA 4
-#define LUGARES_SALA 16
-#define NRO_CADEIRAS 3
-#define NRO_BARBEIROS 3
-#define NRO_CAIXA 1
+#define LOTACAO_MAXIMA 20		// Quantidade máxima de clientes
+#define LUGARES_SOFA 4			// Quantidade de lugares no sofá
+#define LUGARES_SALA 16			// Quantidade de lugares na sala
+#define NRO_CADEIRAS 3			// Quantidade de cadeiras de barbeiro
+#define NRO_BARBEIROS 3			// Quantidade de barbeiros trabalhando
+#define NRO_CAIXA 1				// Quantidade de caixas registradoras
 
 /*
 	Com o objetivo de deixar a leitura do código mais clara, deste ponto em diante, variáveis usadas
@@ -75,7 +75,7 @@ fila *sofaEspera, *salaEspera, *acessoImprime;
 
 sem_t barbeiro, corte, cadeira, caixa;			// Ações da barbearia
 sem_t cliente, fazPagamento, recebeTroco;		// Ações dos clientes
-sem_t imprime;						// Ações do sistema
+sem_t imprime;									// Ações do sistema
 
 /*
 	Controle de clientes dentro da barbearia.
@@ -321,6 +321,9 @@ void *rotinaBarbeiro(void *p_arg){
 		sem_post(&barbeiro);		// Há um barbeiro para atendimento
 		sem_wait(&cliente);			// Há um cliente para ser atendido?
 		
+		/*
+			O barbeiro iniciará o corte em quem está na cadeira
+		*/
 		sem_wait(&corte);
 		imprimeTexto(acessoImprime);
 		sem_wait(&imprime);
@@ -330,25 +333,37 @@ void *rotinaBarbeiro(void *p_arg){
 		sem_post(&imprime);
 		sleep(10);
 		
+		/*
+			O barbeiro que terminar o corte está livre para receber pagamentos
+		*/
 		sem_wait(&barbeiro);			// Há um barbeiro para receber o pagamento?
-		sem_wait(&fazPagamento);
+		sem_wait(&fazPagamento);		// Há clientes que fizeram pagamentos?
 		imprimeTexto(acessoImprime);
 		sem_wait(&imprime);
 		frase = "\t\t\tO barbeiro %d está recebendo pagamento.\n";
 		imprimeFrase(frase, v_barbeiroAtual);
 		avancaFila(acessoImprime);
 		sem_post(&imprime);
-
-		sem_wait(&caixa);
+		
+		/*
+			O barbeiro que estiver disponível irá receber pelo corte realizado por um cliente.
+			Como um barbeiro acabou de ficar disponível após o serviço prestado, é provável que
+			ele atenda o pagamento, mas não é necessáriamente sempre ele.
+			Somente um barbeiro pode usar a caixa registradora por vez
+		*/
+		sem_wait(&caixa);		// Solicita acesso à caixa registradora
 		imprimeTexto(acessoImprime);
 		sem_wait(&imprime);
 		frase = "\t\t\tO barbeiro %d está usando a caixa registradora.\n";
 		imprimeFrase(frase, v_barbeiroAtual);
 		avancaFila(acessoImprime);
 		sem_post(&imprime);
-		sleep(5);
-		sem_post(&caixa);
+		sleep(5);				// Simulação de que as ações levam algum tempo para serem feitas
+		sem_post(&caixa);		// Libera o uso da caixa registradora
 		
+		/*
+			O barbeiro retorna da caixa registradora e vai passar o troco para o cliente
+		*/
 		imprimeTexto(acessoImprime);
 		sem_wait(&imprime);
 		frase = "\t\tO barbeiro %d está passando troco.\n";
@@ -357,6 +372,9 @@ void *rotinaBarbeiro(void *p_arg){
 		sem_post(&imprime);
 		sem_post(&recebeTroco);
 		
+		/*
+			Ao final, o barbeiro está disponível para receber outro cliente.
+		*/
 		imprimeTexto(acessoImprime);
 		sem_wait(&imprime);
 		frase = "\t\t\tO barbeiro %d esta livre.\n";
@@ -366,6 +384,9 @@ void *rotinaBarbeiro(void *p_arg){
 	}
 }
 
+/*
+	Função que retorna o maior valor de dois inteiros
+*/
 int maxInt(int p_valor1, int p_valor2){
 	if (p_valor1 > p_valor2) {
 		return p_valor1;
@@ -374,18 +395,30 @@ int maxInt(int p_valor1, int p_valor2){
 	return p_valor2;
 }
 
+/*
+	Método que imprime uma frase
+*/
 void imprimeFrase(char *p_frase, int p_valor){
 	printf(p_frase, p_valor);
 }
 
+/*
+	Programa principal
+*/
 int main(int argc, char *argv[]){
 	
+	/*
+		Como argumento deve ser passado quantos clientes querem usar a barbearia
+	*/
 	if (argc > 2) {
 		printf("Muitos argumentos passados. Erro!\n");
 		return -1;
 	}
 	int quantidadeClientes = atoi(argv[1]);
 	
+	/*
+		Realiza-se a inicialização dos semáforos que controlarão o fluxo de tarefas
+	*/
 	sem_init(&cadeira,0,NRO_CADEIRAS);
     sem_init(&barbeiro,0,0);
     sem_init(&cliente,0,0);
@@ -394,28 +427,48 @@ int main(int argc, char *argv[]){
     sem_init(&recebeTroco,0,0);
 	sem_init(&imprime,0,1);
 	
+	/*
+		As filas de semáforos para a sala e o sofá são criadas
+		Seus tamanhos dependem do número de LUGARES_SALA e LUGARES_SOFA
+		Os clientes só avançam nessa fila quando o primeiro da fila sair, liberando um novo espaço no final da fila.
+		A fila de acesso à impressão é criada com o tamanho máximo de acessos simultâneos à impressão, isto é, se todos
+		os clientes e todos os barbeiros pedirem para imprimir algo ao mesmo tempo.
+	*/
 	salaEspera = criaFila(LUGARES_SALA);
 	sofaEspera = criaFila(LUGARES_SOFA);
 	acessoImprime = criaFila(quantidadeClientes+NRO_BARBEIROS);
 	
+	/*
+		Os clientes e barbeiros serão tratados como threads, aqui organizados em vetores
+		Isso se faz porque as ações dos clientes e dos barbeiros ocorrem em paralelo
+		Por exemplo, um barbeiro pode estar cortando o cabelo enquanto outro está passando troco, bem como um cliente
+		pode estar em pé na sala de espera enquanto outro está tendo seu cabelo cortado.
+	*/
 	pthread_t vetorClientes[quantidadeClientes];
 	pthread_t vetorBarbeiros[NRO_BARBEIROS];
-	
+
+	/*
+		Cria os valores dos identificadores dos clientes e dos barbeiros
+	*/
 	int identificadores[maxInt(quantidadeClientes, NRO_BARBEIROS)];
 	
 	for (int i = 0; i < quantidadeClientes; i++) {
-		identificadores[i] = i;
+ 		identificadores[i] = i+1;					// Os valores de identificadores vão de 1 até quantidadeClientes
 		pthread_create(&vetorClientes[i], 0, (void *) rotinaCliente, &identificadores[i]);
 	}
 	
-	for (int i = 0; i < NRO_BARBEIROS; i++) {	
+	for (int i = 0; i < NRO_BARBEIROS; i++) {
+		identificadores[i] = i+1;					// Os valores de identificadores vão de 1 até NRO_BARBEIROS
 		pthread_create(&vetorBarbeiros[i], 0, (void *) rotinaBarbeiro, &identificadores[i]);
 	}
 	
-	sleep(1);
-
-	while(nroClientes != 0);
+ 	sleep(1);	// Fornece um tempo para que o primeiro cliente entre na loja e quebre a condição de saída abaixo
 	
+	while(nroClientes != 0);		// Aguarda todos os clientes serem atendidos
+	
+	/*
+		Destrutores de semáforos, desalocando as memórias que eles ocupam
+	*/
 	sem_destroy(&cadeira);
     sem_destroy(&barbeiro);
     sem_destroy(&cliente);
@@ -423,6 +476,10 @@ int main(int argc, char *argv[]){
     sem_destroy(&caixa);
     sem_destroy(&recebeTroco);
 	
+
+	/*
+		Destrutores de filas, desalocando as memórias que elas ocupam
+	*/
 	free(salaEspera);
 	free(sofaEspera);
 	
