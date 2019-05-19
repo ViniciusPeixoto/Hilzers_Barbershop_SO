@@ -463,11 +463,22 @@ int main(int argc, char *argv[]){
 	/*
 		Como argumento deve ser passado quantos clientes querem usar a barbearia
 	*/
-	if (argc > 2) {
-		printf("Muitos argumentos passados. Erro!\n");
+	if (argc != 2) {
+		printf("Numero incorreto de argumentos. Erro!\n");
 		return -1;
 	}
+	if (argv[1] == '?'){
+		printf("barbershop C\n\n");
+		printf("c\t\tNumero de clientes. Deve ser inteiro e maior que 0\n");
+		return 0;
+	}
+	
 	int quantidadeClientes = atoi(argv[1]);
+	
+	if (quantidadeClientes == 0) {
+		printf("Quantidade invalida. Erro!\n");
+		return -1;
+	}
 	
 	/*
 		Realiza-se a inicialização dos semáforos que controlarão o fluxo de tarefas
