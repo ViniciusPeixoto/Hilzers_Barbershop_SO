@@ -486,6 +486,8 @@ int main(int argc, char *argv[]){
 		return -1;
 	}
 	
+	printf("Cenario com %d clientes\n\n", quantidadeClientes);
+	
 	/*
 		Realiza-se a inicialização dos semáforos que controlarão o fluxo de tarefas
 	*/

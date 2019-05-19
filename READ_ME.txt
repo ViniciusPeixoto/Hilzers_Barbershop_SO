@@ -42,6 +42,7 @@ Com o objeto montado e o terminal ainda aberto no mesmo diretótio, digite o com
 
 Subistitua <número de clientes> pela quantidade de clientes que você deseja colocar na simulação.
 O número deve ser inteiro e maior que 0.
+Caso seja passado "?", será exibido um pequeno guia de ajuda a como usar o programa.
 
 4. Resultados esperados
 
