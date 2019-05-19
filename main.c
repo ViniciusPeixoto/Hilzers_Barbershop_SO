@@ -75,7 +75,7 @@ fila *sofaEspera, *salaEspera, *acessoImprime;
 
 sem_t barbeiro, corte, cadeira, caixa;			// Ações da barbearia
 sem_t cliente, fazPagamento, recebeTroco;		// Ações dos clientes
-sem_t imprime, vazio;									// Ações do sistema
+sem_t imprime, bloqueio;						// Ações do sistema
 
 /*
 	Controle ddo fluxo dentro da barbearia.
@@ -197,9 +197,13 @@ void *rotinaCliente(void *p_arg){
 		lugar no sofá.
 	*/
 	esperaSofa(sofaEspera, v_clienteAtual);
-	sem_wait(&vazio);
+	
+	/*
+		Ao ocupar o sofá, o número de clientes aguardando no sofá aumenta.
+	*/
+	sem_wait(&bloqueio);
 	espera++;
-	sem_post(&vazio);
+	sem_post(&bloqueio);
 	
 	/*
 		Com a mesma ideia da sala de espera, somente a pessoa que está sentada a mais tempo, ou seja,
@@ -230,10 +234,11 @@ void *rotinaCliente(void *p_arg){
 
 	/*
 		Com o barbeiro disponível, temos então o serviço começando a ser feito.
+		O número de clientes esperando no sofá diminui
 	*/
-	sem_wait(&vazio);
+	sem_wait(&bloqueio);
 	espera--;
-	sem_post(&vazio);
+	sem_post(&bloqueio);
 	
 	imprimeTexto(acessoImprime);
 	sem_wait(&imprime);
@@ -341,16 +346,26 @@ void *rotinaBarbeiro(void *p_arg){
 			avancaFila(acessoImprime);
 			sem_post(&imprime);
 		}
-		sem_wait(&vazio);
+		
+		/*
+			Se o barbeiro está disponível e não está atendendo um cliente, ele está ocioso
+		*/
+		sem_wait(&bloqueio);
 		barbeiroOcioso++;
-		sem_post(&vazio);
+		sem_post(&bloqueio);
 
 		sem_wait(&cliente);			// Há um cliente para ser atendido?
 		
-		sem_wait(&vazio);
+		/*
+			Se há um cliente, o barbeiro deixa de estar ocioso
+		*/
+		sem_wait(&bloqueio);
 		barbeiroOcioso--;
-		sem_post(&vazio);
-
+		sem_post(&bloqueio);
+		
+		/*
+			O barbeiro começa o atendimento de um cliente
+		*/
 		imprimeTexto(acessoImprime);
 		sem_wait(&imprime);
 		frase = "\t\t\tO barbeiro %d está atendendo.\n";
@@ -464,7 +479,7 @@ int main(int argc, char *argv[]){
     sem_init(&caixa,0,NRO_CAIXA);
     sem_init(&recebeTroco,0,0);
 	sem_init(&imprime,0,1);
-	sem_init(&vazio, 0,1);
+	sem_init(&bloqueio, 0,1);
 	
 	/*
 		As filas de semáforos para a sala e o sofá são criadas
@@ -502,7 +517,12 @@ int main(int argc, char *argv[]){
 	}
 	
  	sleep(1);	// Fornece um tempo para que o primeiro cliente entre na loja e quebre a condição de saída abaixo
-	while(nroClientes != 0 || barbeiroOcioso != NRO_BARBEIROS);		// Aguarda todos os clientes serem atendidos
+	
+	/*
+		O programa finaliza quando todos os clientes forem atendidos e os barbeiros estiverem ociosos
+	*/
+	while(nroClientes != 0 || barbeiroOcioso != NRO_BARBEIROS);
+	
 	/*
 		Destrutores de semáforos, desalocando as memórias que eles ocupam
 	*/
@@ -513,7 +533,7 @@ int main(int argc, char *argv[]){
     sem_destroy(&caixa);
     sem_destroy(&recebeTroco);
 	sem_destroy(&imprime);
-	sem_destroy(&vazio);
+	sem_destroy(&bloqueio);
 
 	/*
 		Destrutores de filas, desalocando as memórias que elas ocupam
