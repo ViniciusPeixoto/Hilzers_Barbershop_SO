@@ -78,10 +78,12 @@ sem_t cliente, fazPagamento, recebeTroco;		// Ações dos clientes
 sem_t imprime, vazio;									// Ações do sistema
 
 /*
-	Controle de clientes dentro da barbearia.
+	Controle ddo fluxo dentro da barbearia.
 */
 int nroClientes = 0;
 int espera = 0;
+
+int barbeiroOcioso = 0;
 
 /*
 	Frases que serão escritas
@@ -225,17 +227,20 @@ void *rotinaCliente(void *p_arg){
 	sem_wait(&cadeira);
 
 	sem_wait(&barbeiro);		// Há um barbeiro para atendê-lo?
-	
+
 	/*
 		Com o barbeiro disponível, temos então o serviço começando a ser feito.
 	*/
+	sem_wait(&vazio);
+	espera--;
+	sem_post(&vazio);
+	
 	imprimeTexto(acessoImprime);
 	sem_wait(&imprime);
 	frase = "\t\tO cliente %d esta sendo atendido agora.\n";
 	imprimeFrase(frase, v_clienteAtual);
 	avancaFila(acessoImprime);
 	sem_post(&imprime);
-	sleep(3);		// Simulação de que as ações levam algum tempo para serem feitas
 	
 	imprimeTexto(acessoImprime);
 	sem_wait(&imprime);
@@ -324,15 +329,41 @@ void *rotinaBarbeiro(void *p_arg){
 	*/
 	while(1){
 		sem_post(&barbeiro);		// Há um barbeiro para atendimento
+
+		/*
+			Se não há clientes no sofá, o barbeiro dorme
+		*/
+		if(espera == 0){
+			imprimeTexto(acessoImprime);
+			sem_wait(&imprime);
+			frase = "\t\t\tNao ha clientes. O barbeiro %d vai dormir.\n";
+			imprimeFrase(frase, v_barbeiroAtual);
+			avancaFila(acessoImprime);
+			sem_post(&imprime);
+		}
+		sem_wait(&vazio);
+		barbeiroOcioso++;
+		sem_post(&vazio);
+
 		sem_wait(&cliente);			// Há um cliente para ser atendido?
 		
+		sem_wait(&vazio);
+		barbeiroOcioso--;
+		sem_post(&vazio);
+
+		imprimeTexto(acessoImprime);
+		sem_wait(&imprime);
+		frase = "\t\t\tO barbeiro %d está atendendo.\n";
+		imprimeFrase(frase, v_barbeiroAtual);
+		avancaFila(acessoImprime);
+		sem_post(&imprime);
 		/*
 			O barbeiro iniciará o corte em quem está na cadeira
 		*/
 		sem_wait(&corte);
 		imprimeTexto(acessoImprime);
 		sem_wait(&imprime);
-		frase = "\t\tO barbeiro %d está cortando cabelo.\n";
+		frase = "\t\t\tO barbeiro %d está cortando cabelo.\n";
 		imprimeFrase(frase, v_barbeiroAtual);
 		avancaFila(acessoImprime);
 		sem_post(&imprime);
@@ -371,11 +402,12 @@ void *rotinaBarbeiro(void *p_arg){
 		*/
 		imprimeTexto(acessoImprime);
 		sem_wait(&imprime);
-		frase = "\t\tO barbeiro %d está passando troco.\n";
+		frase = "\t\t\tO barbeiro %d está passando troco.\n";
 		imprimeFrase(frase, v_barbeiroAtual);
 		avancaFila(acessoImprime);
 		sem_post(&imprime);
 		sem_post(&recebeTroco);
+		sleep(5);
 		
 		/*
 			Ao final, o barbeiro está disponível para receber outro cliente.
@@ -387,14 +419,6 @@ void *rotinaBarbeiro(void *p_arg){
 		avancaFila(acessoImprime);
 		sem_post(&imprime);
 		
-		if(espera == 0){
-			imprimeTexto(acessoImprime);
-			sem_wait(&imprime);
-			frase = "\t\t\tNao ha clientes. O barbeiro %d vai dormir.\n";
-			imprimeFrase(frase, v_barbeiroAtual);
-			avancaFila(acessoImprime);
-			sem_post(&imprime);
-		}
 	}
 }
 
@@ -478,9 +502,7 @@ int main(int argc, char *argv[]){
 	}
 	
  	sleep(1);	// Fornece um tempo para que o primeiro cliente entre na loja e quebre a condição de saída abaixo
-	
-	while(nroClientes != 0);		// Aguarda todos os clientes serem atendidos
-	
+	while(nroClientes != 0 || barbeiroOcioso != NRO_BARBEIROS);		// Aguarda todos os clientes serem atendidos
 	/*
 		Destrutores de semáforos, desalocando as memórias que eles ocupam
 	*/
