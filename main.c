@@ -35,13 +35,12 @@
 /*
 	Definição da estrutura FILA.
 	Esta estrutura será usada para ordenar os clientes da barbearia.
+	Os semáforos servem para permitir o funcionamento correto das filas, já que
+	elas só tem fluxo de clientes no começo, quando o primeiro da fila tem a sua vez, e no final,
+	quando um novo cliente entra na fila.
 */
 typedef struct{
-	/*
-		Os semáforos servem para permitir o funcionamento correto das filas, já que
-		elas só tem fluxo de clientes no começo, quando o primeiro da fila tem a sua vez, e no final,
-		quando um novo cliente entra na fila.
-	*/
+	
     sem_t cabeca;
     sem_t cauda;
 } fila;
@@ -450,6 +449,13 @@ int maxInt(int p_valor1, int p_valor2){
 
 /*
 	Método que imprime uma frase
+	A chamada desse método deve ser envolto de outros comandos para preparar a impressão
+	- Colocar a chamada de impressão na fila
+	- Bloquear a possibilidade de outras threads alterarem as variáveis de impressão
+	- Configurar a frase que se deseja imprimir
+	- Chamar este método
+	- Avançar a fila de impressão
+	- Liberar as variáveis de impressão para edição
 */
 void imprimeFrase(char *p_frase, int p_valor){
 	printf(p_frase, p_valor);
