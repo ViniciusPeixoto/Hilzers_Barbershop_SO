@@ -96,7 +96,7 @@ char *frase;
 fila *criaFila(int p_tamanhoFila){
     fila* v_filaCriada = (fila*) malloc(sizeof(fila));		// Alocação de memória para a fila a ser criada
 	
-    sem_init(&(v_filaCriada->cabeca), 0, 0);				// Inicialmente, ninguém está como primeiro da fila
+    sem_init(&(v_filaCriada->cabeca), 0, 1);				// Inicialmente, ninguém está como primeiro da fila
     sem_init(&(v_filaCriada->cauda),  0, p_tamanhoFila);	// A fila é definida com um tamanho fixo
 
     return v_filaCriada;
@@ -114,7 +114,7 @@ void esperaSala(fila *p_sala, int p_cliente){
 	imprimeFrase(frase, p_cliente);
 	avancaFila(acessoImprime);
 	sem_post(&imprime);
-    sem_post(&(p_sala->cabeca));									// Se há espaço na sala, há um cliente para sentar no sofá
+    sem_wait(&(p_sala->cabeca));									// Se há espaço na sala, há um cliente para sentar no sofá
 }
 
 void esperaSofa(fila *p_sofa, int p_cliente){
@@ -125,17 +125,17 @@ void esperaSofa(fila *p_sofa, int p_cliente){
 	imprimeFrase(frase, p_cliente);
 	avancaFila(acessoImprime);
 	sem_post(&imprime);
-    sem_post(&(p_sofa->cabeca));									// Se há espaço no sofá, há um cliente para ser o próximo a
+    sem_wait(&(p_sofa->cabeca));									// Se há espaço no sofá, há um cliente para ser o próximo a
 																	// ser atendido pelo barbeiro
 }
 
 void imprimeTexto(fila *p_acesso){
 	sem_wait(&(p_acesso->cauda));
-	sem_post(&(p_acesso->cabeca));
+	sem_wait(&(p_acesso->cabeca));
 }
 
 void avancaFila(fila *p_fila){
-    sem_wait(&(p_fila->cabeca));									// Verifica se o primeiro da fila pode passar para o próximo estágio
+    sem_post(&(p_fila->cabeca));									// Verifica se o primeiro da fila pode passar para o próximo estágio
     sem_post(&(p_fila->cauda));										// Libera um espaço a mais no final da fila em questão
 }
 
@@ -559,6 +559,7 @@ int main(int argc, char *argv[]){
 	*/
 	free(salaEspera);
 	free(sofaEspera);
+	free(acessoImprime);
 	
 	return 0;
 	
