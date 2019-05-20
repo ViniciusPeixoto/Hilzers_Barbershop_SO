@@ -119,6 +119,15 @@ void esperaSala(fila *p_sala, int p_cliente){
 
 void esperaSofa(fila *p_sofa, int p_cliente){
     sem_wait(&(p_sofa->cauda));										// Verifica se há espaço no sofá
+	
+	/*
+		Como no último passo, o cliente conseguiu se sentar, isso significa que um lugar na sala de espera
+		está vago, principalmente por se tratar do primeiro lugar, ou seja, a próxima pessoa a se sentar no
+		sofá. Portanto, a fila deve andar um passo para frente, permitindo alguém a ocupar o primeiro lugar
+		da sala de espera e liberar um lugar no fim da fila da sala de espera.
+	*/
+	avancaFila(salaEspera);
+	
 	imprimeTexto(acessoImprime);
 	sem_wait(&imprime);
 	frase = "\tO cliente %d sentou no sofa.\n";
@@ -210,13 +219,6 @@ void *rotinaCliente(void *p_arg){
 		estão sentados no sofá, em ordem de chegada, verificam se a posição de primeiro da fila está vaga.
 	*/
 	
-	/*
-		Como no último passo, o cliente conseguiu se sentar, isso significa que um lugar na sala de espera
-		está vago, principalmente por se tratar do primeiro lugar, ou seja, a próxima pessoa a se sentar no
-		sofá. Portanto, a fila deve andar um passo para frente, permitindo alguém a ocupar o primeiro lugar
-		da sala de espera e liberar um lugar no fim da fila da sala de espera.
-	*/
-	avancaFila(salaEspera);
 	
 	/*
 		Após esperar no sofá, o cliente vai esperar que um barbeiro esteja disponívei para atendê-lo.
@@ -481,7 +483,7 @@ int main(int argc, char *argv[]){
 	
 	int quantidadeClientes = atoi(argv[1]);
 	
-	if (quantidadeClientes == 0) {
+	if (quantidadeClientes <= 0) {
 		printf("Quantidade invalida. Erro!\n");
 		return -1;
 	}
