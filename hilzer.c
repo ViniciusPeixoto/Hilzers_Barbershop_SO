@@ -203,15 +203,13 @@ void *rotinaCliente(void *p_arg){
 	/*
 		Uma vez que o cliente é a pessoa que está esperando em pé por mais tempo, ele tenta ocupar um
 		lugar no sofá.
-	*/
-	esperaSofa(sofaEspera, v_clienteAtual);
-	
-	/*
 		Ao ocupar o sofá, o número de clientes aguardando no sofá aumenta.
 	*/
 	sem_wait(&bloqueio);
 	espera++;
 	sem_post(&bloqueio);
+
+	esperaSofa(sofaEspera, v_clienteAtual);
 	
 	/*
 		Com a mesma ideia da sala de espera, somente a pessoa que está sentada a mais tempo, ou seja,
@@ -475,7 +473,7 @@ int main(int argc, char *argv[]){
 		printf("Numero incorreto de argumentos. Erro!\n");
 		return -1;
 	}
-	if (argv[1] == '?'){
+	if (argv[1] == "?"){
 		printf("barbershop C\n\n");
 		printf("c\t\tNumero de clientes. Deve ser inteiro e maior que 0\n");
 		return 0;
