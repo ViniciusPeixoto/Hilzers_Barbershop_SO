@@ -169,7 +169,7 @@ void *rotinaCliente(void *p_arg){
 		Um cliente só pode entrar na barbearia se há espaço suficiente para ele esperar sua vez.
 		Caso contrário, ele vai embora.
 	*/
-	if (nroClientes >= 20){
+	if (nroClientes >= LOTACAO_MAXIMA){
 		imprimeTexto(acessoImprime);
 		sem_wait(&imprime);
 		frase = "A barbearia esta cheia. O cliente %d vai embora.\n";
@@ -469,11 +469,11 @@ int main(int argc, char *argv[]){
 	/*
 		Como argumento deve ser passado quantos clientes querem usar a barbearia
 	*/
-	if (argc != 2) {
+	if (argc > 2) {
 		printf("Numero incorreto de argumentos. Erro!\n");
 		return -1;
 	}
-	if (argv[1] == "?"){
+	if (argc < 2){
 		printf("barbershop C\n\n");
 		printf("c\t\tNumero de clientes. Deve ser inteiro e maior que 0\n");
 		return 0;
